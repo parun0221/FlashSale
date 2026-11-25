@@ -21,4 +21,46 @@ const redis = new IORedis(config.redisUrl, {
 
 redis.on('error', (err) => console.error('Redis error:', err.message));
 
+// Token bucket atomik.
+// ARGV: capacity, refill per detik, cost
+// Return: {diizinkan (1/0), sisa token, retry-after dalam ms}
+redis.defineCommand('takeToken', {
+  numberOfKeys: 1,
+  lua: `
+    local capacity = tonumber(ARGV[1])
+    local rate = tonumber(ARGV[2])
+    local cost = tonumber(ARGV[3])
+
+    -- waktu diambil dari Redis, bukan dari aplikasi, agar konsisten antar instance
+    local t = redis.call('TIME')
+    local now = t[1] * 1000 + math.floor(t[2] / 1000)
+
+    local data = redis.call('HMGET', KEYS[1], 'tokens', 'ts')
+    local tokens = tonumber(data[1])
+    local ts = tonumber(data[2])
+    if tokens == nil then
+      tokens = capacity
+      ts = now
+    end
+
+    -- isi ulang sesuai waktu yang berlalu, maksimal sebesar kapasitas
+    tokens = math.min(capacity, tokens + math.max(0, now - ts) * rate / 1000)
+
+    local allowed = 0
+    local retry = 0
+    if tokens >= cost then
+      tokens = tokens - cost
+      allowed = 1
+    else
+      retry = math.ceil((cost - tokens) * 1000 / rate)
+    end
+
+    redis.call('HSET', KEYS[1], 'tokens', tokens, 'ts', now)
+    -- key hilang sendiri setelah ember pasti sudah penuh lagi
+    redis.call('PEXPIRE', KEYS[1], math.ceil(capacity / rate * 1000) + 1000)
+    return {allowed, math.floor(tokens), retry}
+  `,
+});
+
 module.exports = { redis };
+
