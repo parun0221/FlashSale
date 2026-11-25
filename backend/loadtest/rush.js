@@ -13,7 +13,7 @@ async function worker() {
     const i = next++;
     const res = await fetch(`http://localhost:3000/api/sales/${saleId}/orders`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${tokens[i]}` },
+      headers: { Authorization: `Bearer ${tokens[i]}`, 'Idempotency-Key': `rush-${saleId}-${i}` },
     });
     counts[res.status] = (counts[res.status] || 0) + 1;
     await res.arrayBuffer();
