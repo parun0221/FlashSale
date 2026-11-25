@@ -1,0 +1,11 @@
+### Contoh request untuk REST Client (VS Code). Lengkapi sambil Anda membangun endpoint.
+@base = http://localhost:3000
+
+### POST   {{base}}/api/auth/register
+### POST   {{base}}/api/auth/login
+### POST   {{base}}/api/auth/refresh
+### GET    {{base}}/api/products?limit=10
+### GET    {{base}}/api/sales
+### POST   {{base}}/api/sales/:id/orders      (header: Authorization, Idempotency-Key)
+### GET    {{base}}/api/orders/:id
+### GET    {{base}}/health   /ready   /metrics

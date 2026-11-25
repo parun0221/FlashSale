@@ -1,0 +1,41 @@
+{
+  "name": "flashsale-backend",
+  "version": "1.0.0",
+  "description": "Flash sale backend: Express, PostgreSQL, Redis, BullMQ",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:worker": "node src/worker.js",
+    "dev": "nodemon src/server.js",
+    "dev:worker": "nodemon src/worker.js",
+    "migrate": "node src/scripts/migrate.js",
+    "seed": "node src/scripts/seed.js",
+    "load:users": "node src/scripts/gen-load-users.js",
+    "verify:sale": "node src/scripts/verify-sale.js",
+    "test": "jest tests/unit",
+    "test:integration": "RUN_INTEGRATION=1 jest tests/integration --runInBand --forceExit"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.12.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "pino": "^9.3.2",
+    "pino-http": "^10.2.0",
+    "prom-client": "^15.1.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4",
+    "pino-pretty": "^11.2.2",
+    "supertest": "^7.0.0"
+  },
+  "jest": { "testEnvironment": "node", "testTimeout": 30000 }
+}

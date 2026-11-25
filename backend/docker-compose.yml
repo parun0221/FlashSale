@@ -1,0 +1,10 @@
+# TODO: jalankan seluruh stack dengan satu perintah.
+#
+# Service yang dibutuhkan:
+#   postgres : image postgres:16-alpine, volume, healthcheck (pg_isready)
+#   redis    : image redis:7-alpine, healthcheck (redis-cli ping)
+#   migrate  : build ., command node src/scripts/migrate.js (sekali jalan)
+#   api      : build ., port 3000; depends_on migrate (service_completed_successfully) + redis (service_healthy)
+#   worker   : build ., command node src/worker.js; dependensi sama dengan api
+#
+# Catatan: di dalam jaringan compose, host database adalah nama service (postgres, redis), bukan localhost.
