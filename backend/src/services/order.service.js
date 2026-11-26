@@ -25,43 +25,92 @@ const KEYS = require('../constants/redisKeys');
 const QUEUES = require('../constants/queues');
 const { toOrderDTO } = require('../models/order.model');
 
+const { ordersTotal } = require('../utils/metrics');
+
 class SoldOutError extends Error {}
 
 /**
  * JALUR CEPAT (dipanggil API): cek jadwal -> reservasi stok di Redis -> masukkan ke antrean.
  * Database tidak ditulis di sini.
  */
-exports.placeOrder = async ({ saleId, userId }) => {
+
+function reject(result, status, message) {
+  ordersTotal.inc({ result });
+  throw new ApiError(status, message);
+}
+
+// exports.placeOrder = async ({ saleId, userId, requestId }) => {
+//   const sale = await saleRepo.findById(saleId);
+//   if (!sale) throw new ApiError(404, 'Sale not found');
+
+//   const now = Date.now();
+//   if (now < new Date(sale.starts_at).getTime()) throw new ApiError(409, 'Sale has not started yet');
+//   if (now > new Date(sale.ends_at).getTime()) throw new ApiError(409, 'Sale has ended');
+
+//   const stockKey = KEYS.saleStock(saleId);
+//   const buyersKey = KEYS.saleBuyers(saleId);
+
+//   let reserved = await redis.reserveStock(stockKey, buyersKey, userId);
+//   if (reserved === -2) {                       // key stok belum ada: isi dari DB, coba lagi
+//     await saleService.warmStock(saleId);
+//     reserved = await redis.reserveStock(stockKey, buyersKey, userId);
+//   }
+//   if (reserved === -1) throw new ApiError(409, 'You have already purchased in this sale');
+//   if (reserved === 0) throw new ApiError(409, 'Sold out');
+
+//   const orderId = randomUUID();
+//   try {
+//     await getOrderQueue().add(
+//       QUEUES.CREATE_ORDER_JOB,
+//       { orderId, saleId, userId, priceCents: sale.sale_price_cents, requestId },
+//       { jobId: orderId } // jobId unik: job yang sama tidak bisa masuk dua kali
+//     );
+//   } catch (err) {
+//     // antrean tidak bisa dihubungi: kembalikan reservasi agar stok tidak "hilang"
+//     await redis.releaseStock(stockKey, buyersKey, userId).catch(() => {});
+//     if (now < new Date(sale.starts_at).getTime()) reject('not_started', 409, 'Sale has not started yet');
+//     if (now > new Date(sale.ends_at).getTime()) reject('ended', 409, 'Sale has ended');
+//     // ...
+//     if (reserved === -1) reject('duplicate', 409, 'You have already purchased in this sale');
+//     if (reserved === 0) reject('sold_out', 409, 'Sold out');
+//     // ... dan sebelum "return { orderId, status: 'pending' }":
+//     ordersTotal.inc({ result: 'accepted' });
+//   }
+//   return { orderId, status: 'pending' };
+// };
+
+exports.placeOrder = async ({ saleId, userId, requestId }) => {
   const sale = await saleRepo.findById(saleId);
   if (!sale) throw new ApiError(404, 'Sale not found');
 
   const now = Date.now();
-  if (now < new Date(sale.starts_at).getTime()) throw new ApiError(409, 'Sale has not started yet');
-  if (now > new Date(sale.ends_at).getTime()) throw new ApiError(409, 'Sale has ended');
+  if (now < new Date(sale.starts_at).getTime()) reject('not_started', 409, 'Sale has not started yet');
+  if (now > new Date(sale.ends_at).getTime()) reject('ended', 409, 'Sale has ended');
 
   const stockKey = KEYS.saleStock(saleId);
   const buyersKey = KEYS.saleBuyers(saleId);
 
   let reserved = await redis.reserveStock(stockKey, buyersKey, userId);
-  if (reserved === -2) {                       // key stok belum ada: isi dari DB, coba lagi
+  if (reserved === -2) {
     await saleService.warmStock(saleId);
     reserved = await redis.reserveStock(stockKey, buyersKey, userId);
   }
-  if (reserved === -1) throw new ApiError(409, 'You have already purchased in this sale');
-  if (reserved === 0) throw new ApiError(409, 'Sold out');
+  if (reserved === -1) reject('duplicate', 409, 'You have already purchased in this sale');
+  if (reserved === 0) reject('sold_out', 409, 'Sold out');
 
   const orderId = randomUUID();
   try {
     await getOrderQueue().add(
       QUEUES.CREATE_ORDER_JOB,
-      { orderId, saleId, userId, priceCents: sale.sale_price_cents },
-      { jobId: orderId } // jobId unik: job yang sama tidak bisa masuk dua kali
+      { orderId, saleId, userId, priceCents: sale.sale_price_cents, requestId },
+      { jobId: orderId }
     );
   } catch (err) {
-    // antrean tidak bisa dihubungi: kembalikan reservasi agar stok tidak "hilang"
     await redis.releaseStock(stockKey, buyersKey, userId).catch(() => {});
     throw new ApiError(503, 'Order service temporarily unavailable');
   }
+
+  ordersTotal.inc({ result: 'accepted' });
   return { orderId, status: 'pending' };
 };
 

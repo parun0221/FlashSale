@@ -16,17 +16,19 @@ const orderService = require('../services/order.service');
 
 const { backoffWithJitter } = require('../utils/backoff');
 
+const logger = require('../config/logger');
 
 async function processOrderJob(job) {
-  const { saleId, userId } = job.data;
+  const { saleId, userId, requestId } = job.data;
+  const log = logger.child({ jobId: job.id, requestId, saleId, userId }); // field ini melekat di setiap log
   const result = await orderService.persistOrder(job.data);
 
   if (result.status !== 'confirmed') {
-    // Gagal secara pasti (stok habis di DB / pembeli ganda): lepas reservasi di Redis,
-    // lalu tandai job gagal TANPA retry, karena mengulang tidak akan mengubah hasilnya.
     await orderService.releaseReservation(saleId, userId);
+    log.warn({ result }, 'order ditolak oleh worker');
     throw new UnrecoverableError(result.status);
   }
+  log.info('order tersimpan');
   return result;
 }
 
@@ -48,12 +50,14 @@ function startOrderWorker() {
 
   worker.on('failed', async (job, err) => {
     if (!job) return;
-    console.warn(`job ${job.id} gagal (percobaan ${job.attemptsMade}/${job.opts.attempts}): ${err.message}`);
-    // Semua percobaan habis: pembelian ini tidak akan pernah jadi, kembalikan stok di Redis.
+    logger.warn(
+      { jobId: job.id, requestId: job.data.requestId, attempt: job.attemptsMade, maxAttempts: job.opts.attempts, err: err.message },
+      'job gagal'
+    );// Semua percobaan habis: pembelian ini tidak akan pernah jadi, kembalikan stok di Redis.
     if (job.attemptsMade >= job.opts.attempts) {
       await orderService
         .releaseReservation(job.data.saleId, job.data.userId)
-        .catch((e) => console.error('gagal mengembalikan reservasi:', e.message));
+        .catch((e) => logger.error({ err: e, jobId: job.id, requestId: job.data.requestId }, 'gagal mengembalikan reservasi'));
     }
   });
 

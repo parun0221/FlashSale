@@ -7,6 +7,11 @@
  *  - Jangan bocorkan detail internal pada 5xx; sertakan requestId
  */
 
+const logger = require('../config/logger');
+
+// di dalam errorHandler:
+
+
 exports.notFound = (req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` });
 };
@@ -17,9 +22,10 @@ exports.errorHandler = (err, req, res, next) => {
     return res.status(400).json({ message: 'Malformed JSON body' });
   }
   const status = err.statusCode || 500;
-  if (status >= 500) console.error(err);
+  if (status >= 500) (req.log || logger).error({ err }, 'unhandled error');
   res.status(status).json({
     message: status >= 500 ? 'Internal server error' : err.message,
     ...(err.details && { details: err.details }),
+    ...(req.id && { requestId: req.id }),
   });
 };

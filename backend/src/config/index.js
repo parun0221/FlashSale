@@ -21,6 +21,7 @@ const schema = Joi.object({
   JWT_ACCESS_SECRET: Joi.string().min(16).required(),
   JWT_ACCESS_TTL: Joi.string().default('15m'),
   REDIS_URL: Joi.string().default('redis://localhost:6379'),
+  LOG_LEVEL: Joi.string().default('info'),
 }).unknown(true);
 
 
@@ -31,6 +32,7 @@ if (error) throw new Error(`Invalid environment: ${error.message}`);
 module.exports = {
   env: value.NODE_ENV,
   port: value.PORT,
+  logLevel: value.LOG_LEVEL,
   jwt: { 
     accessSecret: value.JWT_ACCESS_SECRET, 
     accessTtl: value.JWT_ACCESS_TTL

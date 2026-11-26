@@ -12,6 +12,14 @@ const router = require('express').Router();
 const { pool } = require('../config/db');
 const { redis } = require('../config/redis');
 
+const asyncHandler = require('../utils/asyncHandler');
+const { register } = require('../utils/metrics');
+
+router.get('/metrics', asyncHandler(async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.send(await register.metrics());
+}));
+
 
 // liveness: cek bahwa proses hidup
 router.get('/health', (req, res) => res.json({ status: 'ok' }));

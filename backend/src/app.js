@@ -18,6 +18,13 @@ const app = express();
 
 const { notFound, errorHandler } = require('./middleware/error.middleware');
 
+const requestLogger = require('./middleware/requestLogger.middleware');
+const metricsMiddleware = require('./middleware/metrics.middleware');
+
+app.use(requestLogger);
+app.use(metricsMiddleware);
+// ... route dan error handler seperti sebelumnya
+
 app.use(cors());
 app.use(express.json());
 

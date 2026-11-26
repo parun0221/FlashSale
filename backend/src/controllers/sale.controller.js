@@ -21,7 +21,7 @@ exports.get = asyncHandler(async (req, res) => {
 });
 
 exports.placeOrder = asyncHandler(async (req, res) => {
-  const data = await orderService.placeOrder({ saleId: req.params.id, userId: req.user.id });
+  const data = await orderService.placeOrder({ saleId: req.params.id, userId: req.user.id, requestId: req.id });
   res.status(202).json({ data }); // 202 Accepted: diterima, sedang diproses
 });
 
