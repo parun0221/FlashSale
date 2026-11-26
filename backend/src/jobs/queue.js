@@ -20,7 +20,7 @@ function getOrderQueue() {
       connection: createBullConnection(),
       defaultJobOptions: {
         attempts: 5,                                  // total percobaan per job
-        backoff: { type: 'exponential', delay: 500 }, // jeda 0.5s, 1s, 2s, 4s
+        backoff: { type: 'exponentialJitter', delay: 500 }, // jeda 0.5s, 1s, 2s, 4s
         removeOnComplete: { age: 3600, count: 5000 },
         removeOnFail: { age: 24 * 3600 },             // job gagal disimpan 24 jam
       },

@@ -12,10 +12,15 @@
 const { pool } = require('./config/db');
 const { redis } = require('./config/redis');
 const { startOrderWorker } = require('./jobs/order.worker');
+const { retry } = require('./utils/retry');
+
+const onRetry = (name) => (err, attempt, delay) =>
+  console.warn(`${name} belum siap (percobaan ${attempt}): ${err.message}. Coba lagi dalam ${delay}ms`);
 
 async function start() {
-  await pool.query('SELECT 1');
-  await redis.connect();
+  await retry(() => pool.query('SELECT 1'), { retries: 10, baseDelayMs: 300, onRetry: onRetry('Postgres') });
+  redis.connect().catch(() => {})
+  await retry(() => redis.ping(), { retries: 10, baseDelayMs: 300, onRetry: onRetry('Redis') });
   const worker = startOrderWorker();
   console.log('Order worker started');
 

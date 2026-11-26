@@ -14,6 +14,9 @@ const { createBullConnection } = require('../config/redis');
 const QUEUES = require('../constants/queues');
 const orderService = require('../services/order.service');
 
+const { backoffWithJitter } = require('../utils/backoff');
+
+
 async function processOrderJob(job) {
   const { saleId, userId } = job.data;
   const result = await orderService.persistOrder(job.data);
@@ -28,9 +31,17 @@ async function processOrderJob(job) {
 }
 
 function startOrderWorker() {
+
   const worker = new Worker(QUEUES.ORDERS, processOrderJob, {
     connection: createBullConnection(),
-    concurrency: 10, // jangan melebihi DB_POOL_MAX
+    concurrency: 10,
+    settings: {
+      // dipanggil BullMQ setiap kali job gagal dan perlu dijadwalkan ulang
+      backoffStrategy: (attemptsMade, type, err, job) => {
+        const base = (job && job.opts && job.opts.backoff && job.opts.backoff.delay) || 500;
+        return backoffWithJitter(attemptsMade, base, 30_000);
+      },
+    },
   });
 
   worker.on('completed', (job) => console.log(`job ${job.id} selesai`));

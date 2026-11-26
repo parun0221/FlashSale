@@ -12,12 +12,18 @@ const app = require('./app');
 const config = require('./config');
 const { pool } = require('./config/db');
 const { redis } = require('./config/redis');
+const { retry } = require('./utils/retry');
+
+const onRetry = (name) => (err, attempt, delay) =>
+  console.warn(`${name} belum siap (percobaan ${attempt}): ${err.message}. Coba lagi dalam ${delay}ms`);
+
 
 async function start() {
-  await pool.query('SELECT 1'); // tidak tersambung = berhenti dengan pesan jelas
+  await retry(() => pool.query('SELECT 1'), { retries: 10, baseDelayMs: 300, onRetry: onRetry('Postgres') }); // tidak tersambung = berhenti dengan pesan jelas
   console.log('Postgres connected');
 
-  await redis.connect();
+  redis.connect().catch(() => {})
+  await retry(() => redis.ping(), { retries: 10, baseDelayMs: 300, onRetry: onRetry('Redis') });
   console.log('Redis connected');
 
   const server = app.listen(config.port, () => {
