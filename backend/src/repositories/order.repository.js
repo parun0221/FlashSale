@@ -23,3 +23,19 @@ exports.create = async (client, { saleId, userId, priceCents }) => {
   );
   return rows[0];
 };
+
+// ON CONFLICT DO NOTHING: bila id sudah ada, atau user sudah punya order di sale ini,
+// tidak error, tetapi hasilnya null.
+exports.insertConfirmed = async (client, { id, saleId, userId, priceCents }) => {
+  const { rows } = await client.query(
+    `INSERT INTO orders (id, sale_id, user_id, price_cents)
+     VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING ${COLS}`,
+    [id, saleId, userId, priceCents]
+  );
+  return rows[0] || null;
+};
+
+exports.findById = async (id, client = pool) => {
+  const { rows } = await client.query(`SELECT ${COLS} FROM orders WHERE id = $1`, [id]);
+  return rows[0] || null;
+};

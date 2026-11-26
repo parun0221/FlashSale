@@ -8,3 +8,32 @@
  *  - Jalankan startOrderWorker()
  *  - Graceful shutdown: tunggu job yang sedang berjalan selesai (worker.close)
  */
+
+const { pool } = require('./config/db');
+const { redis } = require('./config/redis');
+const { startOrderWorker } = require('./jobs/order.worker');
+
+async function start() {
+  await pool.query('SELECT 1');
+  await redis.connect();
+  const worker = startOrderWorker();
+  console.log('Order worker started');
+
+  let shuttingDown = false;
+  const shutdown = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received, closing worker...`);
+    await worker.close(); // menunggu job yang sedang berjalan selesai dulu
+    await pool.end();
+    await redis.quit();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+start().catch((err) => {
+  console.error('Worker failed to start:', err.message);
+  process.exit(1);
+});

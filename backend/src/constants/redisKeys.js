@@ -8,3 +8,9 @@
  *  - Key set pembeli sale
  *  - Key refresh token
  */
+
+module.exports = Object.freeze({
+  saleStock: (saleId) => `sale:${saleId}:stock`,
+  saleBuyers: (saleId) => `sale:${saleId}:buyers`,
+  refreshToken: (userId) => `refresh-token:${userId}`,
+});

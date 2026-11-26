@@ -14,11 +14,17 @@ const saleRepo = require('../repositories/sale.repository');
 const productRepo = require('../repositories/product.repository');
 const ApiError = require('../utils/ApiError');
 const { toSaleDTO } = require('../models/sale.model');
+const { redis } = require('../config/redis');
+const KEYS = require('../constants/redisKeys');
 
 exports.create = async (data) => {
   const product = await productRepo.findById(data.productId);
   if (!product) throw new ApiError(404, 'Product not found');
-  return toSaleDTO(await saleRepo.create(data));
+  const row = await saleRepo.create(data);
+  // pasang penghitung stok di Redis
+  await redis.set(KEYS.saleStock(row.id), row.total_stock);
+  await redis.del(KEYS.saleBuyers(row.id));
+  return toSaleDTO(row);
 };
 
 exports.getById = async (id) => {
@@ -30,4 +36,12 @@ exports.getById = async (id) => {
 exports.listUpcomingAndActive = async ({ limit, cursor }) => {
   const rows = await saleRepo.listUpcomingAndActive({ limit, cursor });
   return rows.map(toSaleDTO);
+};
+
+// Bila key stok hilang (Redis di-restart, atau sale dibuat sebelum tahap ini),
+// isi ulang dari database. NX = hanya bila key memang belum ada.
+exports.warmStock = async (saleId) => {
+  const row = await saleRepo.findById(saleId);
+  if (!row) throw new ApiError(404, 'Sale not found');
+  await redis.set(KEYS.saleStock(saleId), row.remaining_stock, 'NX');
 };

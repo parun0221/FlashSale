@@ -29,11 +29,14 @@ async function start() {
   
 
   let shuttingDown = false;
+
+  const { closeOrderQueue } = require('./jobs/queue');
   const shutdown = (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`${signal} received, shutting down...`);
     server.close(async () => {
+      await closeOrderQueue(); // tutup queue, tunggu job yang sedang berjalan selesai
       await pool.end();           // tutup koneksi database
       await redis.quit();         // tutup koneksi Redis
       console.log('Shutdown complete.');
@@ -41,6 +44,7 @@ async function start() {
     });
     setTimeout(() => process.exit(1), 10_000).unref();
   };
+
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }

@@ -21,8 +21,8 @@ exports.get = asyncHandler(async (req, res) => {
 });
 
 exports.placeOrder = asyncHandler(async (req, res) => {
-  const data = await orderService.placeOrder({ saleId: req.params.id, userId: req.user.id, priceCents: req.body.priceCents });
-  res.status(201).json({ data });
+  const data = await orderService.placeOrder({ saleId: req.params.id, userId: req.user.id });
+  res.status(202).json({ data }); // 202 Accepted: diterima, sedang diproses
 });
 
 exports.listUpcomingAndActive = asyncHandler(async (req, res) => {

@@ -62,5 +62,32 @@ redis.defineCommand('takeToken', {
   `,
 });
 
-module.exports = { redis };
+// BullMQ mewajibkan maxRetriesPerRequest: null, jadi memakai koneksi sendiri.
+const createBullConnection = () => new IORedis(config.redisUrl, { maxRetriesPerRequest: null });
+
+// KEYS[1] = stok, KEYS[2] = set pembeli, ARGV[1] = userId
+// Return: 1 berhasil, 0 stok habis, -1 sudah pernah beli, -2 key stok belum ada
+redis.defineCommand('reserveStock', {
+  numberOfKeys: 2,
+  lua: `
+    if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then return -1 end
+    local stock = tonumber(redis.call('GET', KEYS[1]))
+    if stock == nil then return -2 end
+    if stock <= 0 then return 0 end
+    redis.call('DECR', KEYS[1])
+    redis.call('SADD', KEYS[2], ARGV[1])
+    return 1
+  `,
+});
+
+// Mengembalikan reservasi. Aman dipanggil berkali-kali untuk user yang sama.
+redis.defineCommand('releaseStock', {
+  numberOfKeys: 2,
+  lua: `
+    if redis.call('SREM', KEYS[2], ARGV[1]) == 1 then redis.call('INCR', KEYS[1]) end
+    return 1
+  `,
+});
+
+module.exports = { redis, createBullConnection };
 
