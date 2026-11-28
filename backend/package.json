@@ -13,7 +13,7 @@
     "load:users": "node src/scripts/gen-load-users.js",
     "verify:sale": "node src/scripts/verify-sale.js",
     "test": "jest tests/unit",
-    "test:integration": "RUN_INTEGRATION=1 jest tests/integration --runInBand --forceExit"
+    "test:integration": "jest tests/integration --runInBand --forceExit"
   },
   "license": "ISC",
   "dependencies": {
