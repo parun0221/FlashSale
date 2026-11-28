@@ -8,3 +8,72 @@
 #   worker   : build ., command node src/worker.js; dependensi sama dengan api
 #
 # Catatan: di dalam jaringan compose, host database adalah nama service (postgres, redis), bukan localhost.
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://flashsale:flashsale@postgres:5432/flashsale
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-backendtestsecret}
+  JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: flashsale
+      POSTGRES_PASSWORD: flashsale
+      POSTGRES_DB: flashsale
+    ports: ["5434:5432"]        # hanya agar skrip load test dari laptop bisa mengakses
+    volumes: [pgdata_stack:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashsale -d flashsale"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]   # data dan antrean bertahan saat restart
+    volumes: [redisdata_stack:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["node", "src/scripts/migrate.js"]
+    environment: *app-env
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: .
+    ports: ["3000:3000"]
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: ["node", "src/worker.js"]
+    environment: *app-env
+    stop_grace_period: 20s
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata_stack:
+  redisdata_stack:
