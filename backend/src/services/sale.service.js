@@ -17,6 +17,17 @@ const { toSaleDTO } = require('../models/sale.model');
 const { redis } = require('../config/redis');
 const KEYS = require('../constants/redisKeys');
 
+const cache = require('../utils/cache');
+
+const SALE_TTL = 60;
+
+// Dipakai placeOrder. Hanya untuk jadwal dan harga; JANGAN dipakai untuk membaca stok.
+exports.getSaleRow = async (id) => {
+  const row = await cache.getOrSet(`cache:sale:${id}`, SALE_TTL, () => saleRepo.findById(id));
+  if (!row) throw new ApiError(404, 'Sale not found');
+  return row;
+};
+
 exports.create = async (data) => {
   const product = await productRepo.findById(data.productId);
   if (!product) throw new ApiError(404, 'Product not found');

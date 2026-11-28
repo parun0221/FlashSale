@@ -30,6 +30,13 @@ const ordersTotal = new client.Counter({
   registers: [register],
 });
 
+const cacheRequests = new client.Counter({
+  name: 'cache_requests_total',
+  help: 'Hit, miss, dan load pada cache',
+  labelNames: ['result'], // hit | miss | load
+  registers: [register],
+});
+
 // Gauge: nilai yang naik-turun. Dibaca langsung dari BullMQ setiap kali /metrics diakses.
 new client.Gauge({
   name: 'orders_queue_jobs',
@@ -46,4 +53,4 @@ new client.Gauge({
   },
 });
 
-module.exports = { register, httpDuration, ordersTotal };
+module.exports = { register, httpDuration, ordersTotal, cacheRequests };
